@@ -19,18 +19,17 @@ type Submission struct {
 	Data Payload
 }
 
-type Payload map[string]string
+type Payload map[string]interface{}
 
 type InvitePayload struct {
 	Email string `json:"email"`
 	Token string `json:"token"`
 }
 
-type SlackPayload struct {
-	CallbackID      string                   `json:"callback_id"`
-	Token           string                   `json:"token"`
-	Actions         []slack.AttachmentAction `json:"actions"`
-	OriginalMessage Payload                  `json:"original_message"`
+type AcceptPayload struct {
+	CallbackID string                   `json:"callback_id"`
+	Token      string                   `json:"token"`
+	Actions    []slack.AttachmentAction `json:"actions"`
 }
 
 type Config struct {
@@ -63,7 +62,6 @@ func main() {
 	e.POST("/review", submit)
 	e.POST("/accept", accept)
 	e.Logger.Fatal(e.Start(":" + port))
-
 }
 
 func index(c echo.Context) error {
@@ -76,49 +74,76 @@ func submit(c echo.Context) error {
 	if err := c.Bind(&payload); err != nil {
 		return err
 	}
-
+	fmt.Printf("%v\n", payload)
 	submissions <- Submission{Data: payload}
 	return c.JSON(http.StatusOK, len(submissions))
 }
 
 func accept(c echo.Context) error {
-	var payload SlackPayload
-	if err := c.Bind(&payload); err != nil {
-		return err
-	}
+	raw := c.FormValue("payload")
+	var payload AcceptPayload
+	json.Unmarshal([]byte(raw), &payload)
 	if payload.Token != config.SlackVerificationToken {
 		return c.NoContent(http.StatusBadRequest)
 	}
-
-	if len(payload.Actions) > 0 && payload.Actions[0].Name == "action" && payload.Actions[0].Value == "accept" {
+	action := payload.Actions[0]
+	if action.Name == "action" && action.Value == "accept" {
 		invitations <- Invitation{Email: payload.CallbackID}
 	}
+	msg := slack.Msg{Text: "Done"}
 
-	return c.NoContent(http.StatusOK)
+	return c.JSON(http.StatusOK, msg)
 }
 
 // Send Interactive Message to Slack
-func message(url string, jobs <-chan Submission) {
+func message(url string, jobs chan Submission) {
 	for job := range jobs {
 		body := new(bytes.Buffer)
-		data, _ := json.Marshal(job.Data)
+		data, err := json.Marshal(job.Data)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		email, ok := job.Data["email"]
+		if !ok {
+			continue
+		}
 
-		attachments := []slack.Attachment{attachment(job.Data["email"], string(data))}
+		attachments := []slack.Attachment{attachment(email.(string), string(data))}
 		msg := slack.Msg{
 			Text:        "Halo!",
 			Attachments: attachments,
 		}
-		json.NewEncoder(body).Encode(msg)
-		http.Post(url, "application/json", body)
+		err = json.NewEncoder(body).Encode(msg)
+		if err != nil {
+			fmt.Println(err)
+			jobs <- job
+		} else {
+			_, err = http.Post(url, "application/json", body)
+			if err != nil {
+				fmt.Println(err)
+				jobs <- job
+			}
+		}
+
 	}
 }
 
-func invite(url string, token string, jobs <-chan Invitation) {
+func invite(url string, token string, jobs chan Invitation) {
 	for job := range jobs {
 		body := new(bytes.Buffer)
 		payload := InvitePayload{Email: job.Email, Token: token}
-		json.NewEncoder(body).Encode(payload)
-		http.Post(url, "application/x-www-form-urlencoded", body)
+		err := json.NewEncoder(body).Encode(payload)
+		if err != nil {
+			fmt.Println(err)
+			jobs <- job
+		} else {
+			_, err = http.Post(url, "application/x-www-form-urlencoded", body)
+			if err != nil {
+				fmt.Println(err)
+				jobs <- job
+			}
+		}
 	}
 }
 

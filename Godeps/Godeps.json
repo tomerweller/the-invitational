@@ -1,0 +1,81 @@
+{
+	"ImportPath": "github.com/cryptominded/invitational",
+	"GoVersion": "go1.9",
+	"GodepVersion": "v79",
+	"Deps": [
+		{
+			"ImportPath": "github.com/dgrijalva/jwt-go",
+			"Comment": "v3.0.0-12-ga601269",
+			"Rev": "a601269ab70c205d26370c16f7c81e9017c14e04"
+		},
+		{
+			"ImportPath": "github.com/labstack/echo",
+			"Comment": "3.2.3-2-gf2bc680",
+			"Rev": "f2bc6802be74c688212fa0e81e08f0e59b180f73"
+		},
+		{
+			"ImportPath": "github.com/labstack/echo/middleware",
+			"Comment": "3.2.3-2-gf2bc680",
+			"Rev": "f2bc6802be74c688212fa0e81e08f0e59b180f73"
+		},
+		{
+			"ImportPath": "github.com/labstack/gommon/bytes",
+			"Comment": "0.2.2",
+			"Rev": "779b8a8b9850a97acba6a3fe20feb628c39e17c1"
+		},
+		{
+			"ImportPath": "github.com/labstack/gommon/color",
+			"Comment": "0.2.2",
+			"Rev": "779b8a8b9850a97acba6a3fe20feb628c39e17c1"
+		},
+		{
+			"ImportPath": "github.com/labstack/gommon/log",
+			"Comment": "0.2.2",
+			"Rev": "779b8a8b9850a97acba6a3fe20feb628c39e17c1"
+		},
+		{
+			"ImportPath": "github.com/labstack/gommon/random",
+			"Comment": "0.2.2",
+			"Rev": "779b8a8b9850a97acba6a3fe20feb628c39e17c1"
+		},
+		{
+			"ImportPath": "github.com/mattn/go-colorable",
+			"Comment": "v0.0.9-6-gad5389d",
+			"Rev": "ad5389df28cdac544c99bd7b9161a0b5b6ca9d1b"
+		},
+		{
+			"ImportPath": "github.com/mattn/go-isatty",
+			"Comment": "v0.0.2",
+			"Rev": "fc9e8d8ef48496124e79ae0df75490096eccf6fe"
+		},
+		{
+			"ImportPath": "github.com/nlopes/slack",
+			"Comment": "v0.1.0-10-g5cde21b",
+			"Rev": "5cde21b8b96a43fc3435a1f514123d14fd7eabdc"
+		},
+		{
+			"ImportPath": "github.com/valyala/bytebufferpool",
+			"Rev": "e746df99fe4a3986f4d4f79e13c1e0117ce9c2f7"
+		},
+		{
+			"ImportPath": "github.com/valyala/fasttemplate",
+			"Rev": "dcecefd839c4193db0d35b88ec65b4c12d360ab0"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/acme",
+			"Rev": "81e90905daefcd6fd217b62423c0908922eadb30"
+		},
+		{
+			"ImportPath": "golang.org/x/crypto/acme/autocert",
+			"Rev": "81e90905daefcd6fd217b62423c0908922eadb30"
+		},
+		{
+			"ImportPath": "golang.org/x/net/websocket",
+			"Rev": "0744d001aa8470aaa53df28d32e5ceeb8af9bd70"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/unix",
+			"Rev": "a646d33e2ee3172a661fc09bca23bb4889a41bc8"
+		}
+	]
+}
