@@ -32,6 +32,7 @@ type AcceptPayload struct {
 }
 
 type Config struct {
+	FormVerificationToken  string
 	SlackWebhookURL        string
 	SlackInviteURL         string
 	SlackVerificationToken string
@@ -45,6 +46,7 @@ var config Config
 func main() {
 	port := getEnv("PORT", "8080")
 	slackOrgName := mustGetEnv("SLACK_ORG_NAME")
+	config.FormVerificationToken = mustGetEnv("FORM_VERIFICATION_TOKEN")
 	config.SlackWebhookURL = mustGetEnv("SLACK_WEBHOOK_URL")
 	config.SlackInviteURL = fmt.Sprintf("https://%s.slack.com/api/users.admin.invite", slackOrgName)
 	config.SlackVerificationToken = mustGetEnv("SLACK_VERIFICATION_TOKEN")
@@ -69,6 +71,9 @@ func index(c echo.Context) error {
 
 // Receive Submission from External Sources
 func submit(c echo.Context) error {
+	if c.QueryParam("token") != config.FormVerificationToken {
+		return c.NoContent(http.StatusUnauthorized)
+	}
 	var payload Payload
 	if err := c.Bind(&payload); err != nil {
 		return err
