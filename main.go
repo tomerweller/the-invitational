@@ -7,7 +7,9 @@ import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 	"github.com/nlopes/slack"
+	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 )
 
@@ -20,11 +22,6 @@ type Submission struct {
 }
 
 type Payload map[string]interface{}
-
-type InvitePayload struct {
-	Email string `json:"email"`
-	Token string `json:"token"`
-}
 
 type AcceptPayload struct {
 	CallbackID string                   `json:"callback_id"`
@@ -74,7 +71,6 @@ func submit(c echo.Context) error {
 	if err := c.Bind(&payload); err != nil {
 		return err
 	}
-	fmt.Printf("%v\n", payload)
 	submissions <- Submission{Data: payload}
 	return c.JSON(http.StatusOK, len(submissions))
 }
@@ -96,10 +92,10 @@ func accept(c echo.Context) error {
 }
 
 // Send Interactive Message to Slack
-func message(url string, jobs chan Submission) {
+func message(uri string, jobs chan Submission) {
 	for job := range jobs {
 		body := new(bytes.Buffer)
-		data, err := json.Marshal(job.Data)
+		data, err := json.MarshalIndent(job.Data, "", "  ")
 		if err != nil {
 			fmt.Println(err)
 			continue
@@ -109,9 +105,9 @@ func message(url string, jobs chan Submission) {
 			continue
 		}
 
-		attachments := []slack.Attachment{attachment(email.(string), string(data))}
+		attachments := []slack.Attachment{attachment(email.(string))}
 		msg := slack.Msg{
-			Text:        "Halo!",
+			Text:        fmt.Sprintf("Email Address: %s\n%s\n", email.(string), string(data)),
 			Attachments: attachments,
 		}
 		err = json.NewEncoder(body).Encode(msg)
@@ -119,7 +115,7 @@ func message(url string, jobs chan Submission) {
 			fmt.Println(err)
 			jobs <- job
 		} else {
-			_, err = http.Post(url, "application/json", body)
+			_, err = http.Post(uri, "application/json", body)
 			if err != nil {
 				fmt.Println(err)
 				jobs <- job
@@ -129,25 +125,24 @@ func message(url string, jobs chan Submission) {
 	}
 }
 
-func invite(url string, token string, jobs chan Invitation) {
+func invite(uri string, token string, jobs chan Invitation) {
 	for job := range jobs {
-		body := new(bytes.Buffer)
-		payload := InvitePayload{Email: job.Email, Token: token}
-		err := json.NewEncoder(body).Encode(payload)
+		values := url.Values{"email": {job.Email}, "token": {token}}
+		response, err := http.PostForm(uri, values)
+
 		if err != nil {
 			fmt.Println(err)
 			jobs <- job
-		} else {
-			_, err = http.Post(url, "application/x-www-form-urlencoded", body)
-			if err != nil {
-				fmt.Println(err)
-				jobs <- job
-			}
+			continue
 		}
+
+		defer response.Body.Close()
+		body, _ := ioutil.ReadAll(response.Body)
+		fmt.Printf("%s\n", body)
 	}
 }
 
-func attachment(email, data string) slack.Attachment {
+func attachment(email string) slack.Attachment {
 	var actions []slack.AttachmentAction
 	actions = append(actions, slack.AttachmentAction{
 		Name:  "action",
@@ -164,7 +159,7 @@ func attachment(email, data string) slack.Attachment {
 		Style: "danger",
 	})
 	value := slack.Attachment{
-		Text:       data,
+		Text:       "Your decision ...",
 		CallbackID: email,
 		Actions:    actions,
 	}
