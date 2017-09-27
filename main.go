@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
+	"strings"
 )
 
 type Invitation struct {
@@ -77,16 +79,22 @@ func submit(c echo.Context) error {
 
 func accept(c echo.Context) error {
 	raw := c.FormValue("payload")
-	var payload AcceptPayload
+	var payload slack.AttachmentActionCallback
 	json.Unmarshal([]byte(raw), &payload)
 	if payload.Token != config.SlackVerificationToken {
 		return c.NoContent(http.StatusBadRequest)
 	}
 	action := payload.Actions[0]
+	var attachment slack.Attachment
 	if action.Name == "action" && action.Value == "accept" {
 		invitations <- Invitation{Email: payload.CallbackID}
+		attachment = slack.Attachment{Text: fmt.Sprintf(":white_check_mark: <@%s> *accepted this application*", payload.User.Name), Color: "good", MarkdownIn: []string{"text"}}
+	} else {
+		attachment = slack.Attachment{Text: fmt.Sprintf(":no_entry: <@%s> *rejected this application*", payload.User.Name), Color: "danger", MarkdownIn: []string{"text"}}
 	}
-	msg := slack.Msg{Text: "Done"}
+
+	msg := payload.OriginalMessage
+	msg.Attachments = []slack.Attachment{attachment}
 
 	return c.JSON(http.StatusOK, msg)
 }
@@ -95,10 +103,10 @@ func accept(c echo.Context) error {
 func message(uri string, jobs chan Submission) {
 	for job := range jobs {
 		body := new(bytes.Buffer)
-		data, err := json.MarshalIndent(job.Data, "", "  ")
-		if err != nil {
-			fmt.Println(err)
-			continue
+		var buffer bytes.Buffer
+		keys := sortedKeys(job.Data)
+		for _, k := range keys {
+			buffer.WriteString(fmt.Sprintf("%s: %v\n", prettyKey(k), job.Data[k]))
 		}
 		email, ok := job.Data["email"]
 		if !ok {
@@ -107,21 +115,20 @@ func message(uri string, jobs chan Submission) {
 
 		attachments := []slack.Attachment{attachment(email.(string))}
 		msg := slack.Msg{
-			Text:        fmt.Sprintf("Email Address: %s\n%s\n", email.(string), string(data)),
+			Text:        fmt.Sprintf("%s\n", buffer.String()),
 			Attachments: attachments,
 		}
-		err = json.NewEncoder(body).Encode(msg)
+		err := json.NewEncoder(body).Encode(msg)
 		if err != nil {
 			fmt.Println(err)
 			jobs <- job
-		} else {
-			_, err = http.Post(uri, "application/json", body)
-			if err != nil {
-				fmt.Println(err)
-				jobs <- job
-			}
+			continue
 		}
-
+		_, err = http.Post(uri, "application/json", body)
+		if err != nil {
+			fmt.Println(err)
+			jobs <- job
+		}
 	}
 }
 
@@ -178,4 +185,20 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func sortedKeys(data map[string]interface{}) []string {
+	var keys []string
+	for k := range data {
+		if k == "page_id" || k == "page_name" || k == "page_url" || k == "ip" || k == "variant" {
+			continue
+		}
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func prettyKey(key string) string {
+	return strings.Title(strings.Join(strings.Split(key, "_"), " "))
 }
