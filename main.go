@@ -107,22 +107,18 @@ func accept(c echo.Context) error {
 // Send Interactive Message to Slack
 func message(uri string, jobs chan Submission) {
 	for job := range jobs {
-		body := new(bytes.Buffer)
-		var buffer bytes.Buffer
-		keys := sortedKeys(job.Data)
-		for _, k := range keys {
-			buffer.WriteString(fmt.Sprintf("%s: %v\n", prettyKey(k), job.Data[k]))
-		}
-		email, ok := job.Data["email"]
-		if !ok {
+		if _, ok := job.Data["email"]; !ok {
 			continue
 		}
 
-		attachments := []slack.Attachment{attachment(email.(string))}
-		msg := slack.Msg{
-			Text:        fmt.Sprintf("%s\n", buffer.String()),
-			Attachments: attachments,
+		var msg slack.Msg
+		if isDud(job.Data) {
+			msg = dudMsg(job.Data["email"].(string))
+		} else {
+			msg = goodMsg(job.Data)
 		}
+
+		body := new(bytes.Buffer)
 		err := json.NewEncoder(body).Encode(msg)
 		if err != nil {
 			fmt.Println(err)
@@ -206,4 +202,34 @@ func sortedKeys(data map[string]interface{}) []string {
 
 func prettyKey(key string) string {
 	return strings.Title(strings.Join(strings.Split(key, "_"), " "))
+}
+
+func isDud(data map[string]interface{}) bool {
+	m := make(map[string]bool)
+
+	for _, v := range data {
+		m[v.(string)] = true
+	}
+	return len(m) < 3
+}
+
+func dudMsg(email string) slack.Msg {
+	return slack.Msg{
+		Text: fmt.Sprintf("Dud Request from: %s\n", email),
+	}
+}
+
+func goodMsg(data map[string]interface{}) slack.Msg {
+	var buffer bytes.Buffer
+	keys := sortedKeys(data)
+	for _, k := range keys {
+		buffer.WriteString(fmt.Sprintf("%s: %v\n", prettyKey(k), data[k]))
+	}
+	email := data["email"]
+
+	attachments := []slack.Attachment{attachment(email.(string))}
+	return slack.Msg{
+		Text:        fmt.Sprintf("%s\n", buffer.String()),
+		Attachments: attachments,
+	}
 }
