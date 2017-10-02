@@ -112,10 +112,10 @@ func message(uri string, jobs chan Submission) {
 		}
 
 		var msg slack.Msg
-		if isDud(job.Data) {
+		if isDud(job) {
 			msg = dudMsg(job.Data["email"].(string))
 		} else {
-			msg = goodMsg(job.Data)
+			msg = goodMsg(job)
 		}
 
 		body := new(bytes.Buffer)
@@ -191,7 +191,7 @@ func getEnv(key, fallback string) string {
 func sortedKeys(data map[string]interface{}) []string {
 	var keys []string
 	for k := range data {
-		if k == "page_id" || k == "page_name" || k == "page_url" || k == "ip" || k == "variant" {
+		if isKeyOmmitable(k) {
 			continue
 		}
 		keys = append(keys, k)
@@ -204,10 +204,20 @@ func prettyKey(key string) string {
 	return strings.Title(strings.Join(strings.Split(key, "_"), " "))
 }
 
-func isDud(data map[string]interface{}) bool {
+func isKeyOmmitable(k string) bool {
+	if k == "page_id" || k == "page_name" || k == "page_url" || k == "ip" || k == "variant" {
+		return true
+	}
+	return false
+}
+
+func isDud(submission Submission) bool {
 	m := make(map[string]bool)
 
-	for _, v := range data {
+	for k, v := range submission.Data {
+		if isKeyOmmitable(k) {
+			continue
+		}
 		m[v.(string)] = true
 	}
 	return len(m) < 3
@@ -219,13 +229,13 @@ func dudMsg(email string) slack.Msg {
 	}
 }
 
-func goodMsg(data map[string]interface{}) slack.Msg {
+func goodMsg(submission Submission) slack.Msg {
 	var buffer bytes.Buffer
-	keys := sortedKeys(data)
+	keys := sortedKeys(submission.Data)
 	for _, k := range keys {
-		buffer.WriteString(fmt.Sprintf("%s: %v\n", prettyKey(k), data[k]))
+		buffer.WriteString(fmt.Sprintf("%s: %v\n", prettyKey(k), submission.Data[k]))
 	}
-	email := data["email"]
+	email := submission.Data["email"]
 
 	attachments := []slack.Attachment{attachment(email.(string))}
 	return slack.Msg{
