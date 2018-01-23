@@ -44,7 +44,7 @@ func main() {
 	e.Use(middleware.CORS())
 
 	e.GET("/", index)
-	e.POST("/submit", submit)
+	e.POST("/review", submit)
 	e.Logger.Fatal(e.Start(":" + port))
 }
 
